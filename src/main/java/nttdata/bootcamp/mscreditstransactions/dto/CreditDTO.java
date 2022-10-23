@@ -13,6 +13,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class CreditDTO {
     private String id;
+    private String nroDoc;
     private String nroCredit;
     private Double creditLine;
     private Double amountUsed;
