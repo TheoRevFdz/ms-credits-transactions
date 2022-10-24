@@ -29,4 +29,9 @@ public class CreditTransactionServiceImpl implements ICreditTransactionService {
         return repository.save(ct);
     }
 
+    @Override
+    public List<CreditTransaction> findTransactionsByNroCredit(String nroCredit) {
+        return repository.findByNroCredit(nroCredit);
+    }
+
 }
