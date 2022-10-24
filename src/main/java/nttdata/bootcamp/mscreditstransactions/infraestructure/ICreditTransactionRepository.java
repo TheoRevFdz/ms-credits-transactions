@@ -10,4 +10,6 @@ import nttdata.bootcamp.mscreditstransactions.model.CreditTransaction;
 @Repository
 public interface ICreditTransactionRepository extends MongoRepository<CreditTransaction, String> {
     public List<CreditTransaction> findByNroCreditAndType(String nroCredit, String type);
+
+    public List<CreditTransaction> findByNroCredit(String nroCredit);
 }

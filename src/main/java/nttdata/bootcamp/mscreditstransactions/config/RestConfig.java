@@ -4,6 +4,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 @Configuration
-public class CreditTransationRestConfig extends RestTemplate {
+public class RestConfig extends RestTemplate {
     
 }
