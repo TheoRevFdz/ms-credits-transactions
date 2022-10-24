@@ -1,5 +1,6 @@
 package nttdata.bootcamp.mscreditstransactions.application;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.extern.slf4j.Slf4j;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.CustomerDTO;
 import nttdata.bootcamp.mscreditstransactions.enums.TypeTransaction;
@@ -21,6 +24,7 @@ import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditTransactionServi
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICustomerService;
 import nttdata.bootcamp.mscreditstransactions.model.CreditTransaction;
 
+@Slf4j
 @RestController
 public class CreditTransactionController {
 
@@ -33,10 +37,17 @@ public class CreditTransactionController {
     @Autowired
     private ICustomerService customerService;
 
+    @CircuitBreaker(name = "credits-transactions", fallbackMethod = "findByNroCreditAndTypeAlt")
     @GetMapping("/{nroCredit}/{type}")
     public ResponseEntity<?> findByNroCreditAndType(@PathVariable String nroCredit, @PathVariable String type) {
         final List<CreditTransaction> response = service.findTransactionByNroCreditAndType(nroCredit, type);
         return ResponseEntity.ok(response);
+    }
+
+    public ResponseEntity<?> findByNroCreditAndTypeAlt(@PathVariable String nroCredit, @PathVariable String type,
+            Exception ex) {
+        log.info(ex.getMessage());
+        return ResponseEntity.badRequest().body(new ArrayList<CreditTransaction>());
     }
 
     @PostMapping("/payment")
