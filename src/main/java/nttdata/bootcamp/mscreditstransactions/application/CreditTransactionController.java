@@ -89,7 +89,7 @@ public class CreditTransactionController {
                                         TypeTransaction.PAGO.toString(), ct.getNroCredit()));
                     }
                     return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(String.format("No se Perfil: %s", optCustomer.get().getProfile()));
+                            .body(String.format("No existe perfil: %s", optCustomer.get().getProfile()));
                 }
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(String.format("No se encontro cliente con Nro. Documento: %s", credit.getNroDoc()));
