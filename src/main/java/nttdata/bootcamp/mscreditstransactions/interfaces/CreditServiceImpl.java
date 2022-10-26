@@ -9,14 +9,13 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
+import nttdata.bootcamp.mscreditstransactions.config.RestConfig;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
 
 @Service
 public class CreditServiceImpl implements ICreditService {
     @Autowired
-    private RestTemplate creditRest;
+    private RestConfig creditRest;
 
     @Override
     public CreditDTO findCreditById(String id) {
