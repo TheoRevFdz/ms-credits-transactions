@@ -1,5 +1,6 @@
 package nttdata.bootcamp.mscreditstransactions.interfaces;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.http.ResponseEntity;
@@ -12,4 +13,6 @@ public interface ICreditService {
     public Optional<CreditDTO> findCreditByNroCredit(String nroCredit);
 
     public ResponseEntity<?> updateCredit(CreditDTO dto);
+
+    public List<CreditDTO> findCreditsByNroDoc(String nroDoc);
 }

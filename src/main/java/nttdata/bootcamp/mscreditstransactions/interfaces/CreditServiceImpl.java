@@ -1,10 +1,12 @@
 package nttdata.bootcamp.mscreditstransactions.interfaces;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -44,8 +46,20 @@ public class CreditServiceImpl implements ICreditService {
         param.put("nroCredit", nroCredit);
         String uri = "http://localhost:8090/api/credits/byNroCredit/{nroCredit}";
         final CreditDTO dto = creditRest.getForObject(uri, CreditDTO.class, param);
-        Optional<CreditDTO> result=Optional.ofNullable(dto); 
+        Optional<CreditDTO> result = Optional.ofNullable(dto);
         return result;
+    }
+
+    @Override
+    public List<CreditDTO> findCreditsByNroDoc(String nroDoc) {
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("nroDoc", nroDoc);
+        String uri = "http://localhost:8090/api/credits/nroDoc/{nroDoc}";
+        ResponseEntity<List<CreditDTO>> resp = creditRest.exchange(uri, HttpMethod.GET, null,
+                new ParameterizedTypeReference<List<CreditDTO>>() {
+
+                }, param);
+        return resp.getBody();
     }
 
 }

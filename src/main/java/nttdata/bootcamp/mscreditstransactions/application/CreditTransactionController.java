@@ -1,10 +1,14 @@
 package nttdata.bootcamp.mscreditstransactions.application;
 
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang.time.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
-import nttdata.bootcamp.mscreditstransactions.dto.CustomerDTO;
+import nttdata.bootcamp.mscreditstransactions.dto.CreditTransactionDTO;
+import nttdata.bootcamp.mscreditstransactions.enums.PayStates;
 import nttdata.bootcamp.mscreditstransactions.enums.TypeTransaction;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditTransactionService;
-import nttdata.bootcamp.mscreditstransactions.interfaces.ICustomerService;
+import nttdata.bootcamp.mscreditstransactions.interfaces.IPaymentScheduleService;
 import nttdata.bootcamp.mscreditstransactions.model.CreditTransaction;
+import nttdata.bootcamp.mscreditstransactions.model.PaymentSchedule;
 
 @Slf4j
 @RestController
@@ -35,7 +41,7 @@ public class CreditTransactionController {
     private ICreditService creditService;
 
     @Autowired
-    private ICustomerService customerService;
+    private IPaymentScheduleService paymentScheduleService;
 
     @CircuitBreaker(name = "credits-transactions", fallbackMethod = "findByNroCreditAndTypeAlt")
     @GetMapping("/{nroCredit}/{type}")
@@ -61,38 +67,29 @@ public class CreditTransactionController {
                             .format("El credito Nro: %s no presenta deuda de consumos realizados.", ct.getNroCredit()));
                 }
 
-                Optional<CustomerDTO> optCustomer = customerService.findCustomerByNroDoc(credit.getNroDoc());
-                if (optCustomer.isPresent()) {
+                credit.setAmountUsed(credit.getAmountUsed() - ct.getTransactionAmount());
+                credit.setCreditLine(credit.getCreditLine() + ct.getTransactionAmount());
 
-                    if (optCustomer.get().getProfileDTO() != null) {
-                        List<CreditTransaction> transactions = service
-                                .findTransactionsByNroCredit(credit.getNroCredit());
+                ResponseEntity<?> resp = creditService.updateCredit(credit);
+                if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
+                    ct.setType(TypeTransaction.PAGO.toString());
+                    ct.setTransactionDate(new Date());
+                    final CreditTransaction response = service.createTransaction(ct);
 
-                        if (transactions.size() > optCustomer.get().getProfileDTO().getMaxQuantityTransactions()) {
-                            credit.setAmountUsed(
-                                    credit.getAmountUsed() + optCustomer.get().getProfileDTO().getCommission());
-                        }
-
-                        credit.setAmountUsed(credit.getAmountUsed() - ct.getTransactionAmount());
-                        credit.setCreditLine(credit.getCreditLine() + ct.getTransactionAmount());
-
-                        ResponseEntity<?> resp = creditService.updateCredit(credit);
-                        if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
-                            ct.setType(TypeTransaction.PAGO.toString());
-                            ct.setTransactionDate(new Date());
-                            final CreditTransaction response = service.createTransaction(ct);
-                            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-                        }
-
-                        return ResponseEntity.badRequest()
-                                .body(String.format("Error al registrar el %s del Crédito Nro: %s",
-                                        TypeTransaction.PAGO.toString(), ct.getNroCredit()));
+                    List<PaymentSchedule> schedules = paymentScheduleService.findByNroCredit(credit.getNroCredit());
+                    Optional<PaymentSchedule> optPay = schedules.stream().findFirst();
+                    if (optPay.isPresent()) {
+                        PaymentSchedule pay = optPay.get();
+                        pay.setStatePayFee(PayStates.PAGADO.toString());
+                        paymentScheduleService.update(pay);
                     }
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(String.format("No existe perfil: %s", optCustomer.get().getProfile()));
+
+                    return ResponseEntity.status(HttpStatus.CREATED).body(response);
                 }
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(String.format("No se encontro cliente con Nro. Documento: %s", credit.getNroDoc()));
+
+                return ResponseEntity.badRequest()
+                        .body(String.format("Error al registrar el %s del Crédito Nro: %s",
+                                TypeTransaction.PAGO.toString(), ct.getNroCredit()));
 
             }
 
@@ -115,35 +112,46 @@ public class CreditTransactionController {
                     return ResponseEntity.badRequest()
                             .body("Linea de crédito insuficiente para completar esta transacción.");
                 }
-                Optional<CustomerDTO> optCustomer = customerService.findCustomerByNroDoc(credit.getNroDoc());
-                if (optCustomer.isPresent()) {
+                Double amountUsed = credit.getAmountUsed() == null ? 0 : credit.getAmountUsed();
+                credit.setAmountUsed(amountUsed + ct.getTransactionAmount());
+                credit.setCreditLine(credit.getCreditLine() - ct.getTransactionAmount());
 
-                    if (optCustomer.get().getProfileDTO() != null) {
-                        List<CreditTransaction> transactions = service
-                                .findTransactionsByNroCredit(credit.getNroCredit());
+                ResponseEntity<?> resp = creditService.updateCredit(credit);
+                if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
+                    ct.setType(TypeTransaction.CONSUMO.toString());
+                    ct.setTransactionDate(new Date());
+                    final CreditTransaction response = service.createTransaction(ct);
 
-                        if (transactions.size() > optCustomer.get().getProfileDTO().getMaxQuantityTransactions()) {
-                            credit.setAmountUsed(
-                                    credit.getAmountUsed() + optCustomer.get().getProfileDTO().getCommission());
-                        }
-
-                        Double amountUsed = credit.getAmountUsed() == null ? 0 : credit.getAmountUsed();
-                        credit.setAmountUsed(amountUsed + ct.getTransactionAmount());
-                        credit.setCreditLine(credit.getCreditLine() - ct.getTransactionAmount());
-
-                        ResponseEntity<?> resp = creditService.updateCredit(credit);
-                        if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
-                            ct.setType(TypeTransaction.CONSUMO.toString());
-                            ct.setTransactionDate(new Date());
-                            final CreditTransaction response = service.createTransaction(ct);
-                            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-                        }
-
-                        return ResponseEntity.badRequest()
-                                .body(String.format("Error al registrar el %s del Crédito Nro: %s",
-                                        TypeTransaction.CONSUMO.toString(), ct.getNroCredit()));
+                    List<PaymentSchedule> schedules = new ArrayList<PaymentSchedule>();
+                    if (ct.getFeeMonths() == null)
+                        ct.setFeeMonths(1.0);
+                    double calc = ct.getTransactionAmount() / ct.getFeeMonths();
+                    Double fee = Double.parseDouble(String.format("%.2f", calc));
+                    SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
+                    LocalDate nowDate = LocalDate.now();
+                    for (int i = 0; i < ct.getFeeMonths(); i++) {
+                        final Date payDate = DateUtils.addMonths(fmt.parse(nowDate.toString()), i + 1);
+                        PaymentSchedule ps = PaymentSchedule.builder()
+                                .nroCredit(credit.getNroCredit())
+                                .idTransaction(response.getId())
+                                .monthlyFee(fee)
+                                .payDateFee(payDate)
+                                .statePayFee(PayStates.PENDIENTE.toString())
+                                .build();
+                        schedules.add(ps);
                     }
+
+                    List<PaymentSchedule> respSchedule = paymentScheduleService.createFromList(schedules);
+                    CreditTransactionDTO respDTO = CreditTransactionDTO.builder()
+                            .creditTransaction(response)
+                            .paymentSchedules(respSchedule)
+                            .build();
+
+                    return ResponseEntity.status(HttpStatus.CREATED).body(respDTO);
                 }
+                return ResponseEntity.badRequest()
+                        .body(String.format("Error al registrar el %s del Crédito Nro: %s",
+                                TypeTransaction.CONSUMO.toString(), ct.getNroCredit()));
             }
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -151,5 +159,30 @@ public class CreditTransactionController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/validFee/{nroDoc}")
+    public ResponseEntity<?> verfyCuotaVencidas(@PathVariable String nroDoc) {
+        List<CreditDTO> credits = creditService.findCreditsByNroDoc(nroDoc);
+
+        boolean resp = false;
+        for (CreditDTO c : credits) {
+            List<PaymentSchedule> schedules = paymentScheduleService.findByNroCredit(c.getNroCredit());
+            List<PaymentSchedule> pendientes = schedules.stream().map(s -> {
+                if (s.getPayDateFee().before(new Date())) {
+                    return s;
+                }
+                return null;
+            }).collect(Collectors.toList());
+
+            pendientes = pendientes.stream().filter(s -> s != null).collect(Collectors.toList());
+
+            if (pendientes.size() > 0) {
+                resp = true;
+                break;
+            }
+        }
+
+        return ResponseEntity.ok().body(resp);
     }
 }
