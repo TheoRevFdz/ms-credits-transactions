@@ -12,4 +12,6 @@ public interface IPaymentScheduleService {
     public List<PaymentSchedule> createFromList(List<PaymentSchedule> paymentSchedules);
 
     public PaymentSchedule update(PaymentSchedule paymentSchedule);
+
+    public List<PaymentSchedule> findByNroCreditAndState(String nroCredit, String statePayFee);
 }

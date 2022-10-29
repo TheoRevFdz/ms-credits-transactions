@@ -12,6 +12,7 @@ import org.apache.commons.lang.time.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -61,6 +62,7 @@ public class CreditTransactionController {
         return ResponseEntity.badRequest().body(new ArrayList<CreditTransaction>());
     }
 
+    @Transactional
     @PostMapping("/payment")
     public ResponseEntity<?> createPay(@RequestBody CreditTransaction ct) {
         try {
@@ -72,16 +74,20 @@ public class CreditTransactionController {
                             .format("El credito Nro: %s no presenta deuda de consumos realizados.", ct.getNroCredit()));
                 }
 
-                Optional<AccountDTO> optAccount = accountService.findAccountByNro(ct.getOriginAccount());
-                if (!optAccount.isPresent()) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body(String.format("La cuenta Nro: %s no existe.", ct.getOriginAccount()));
+                Optional<AccountDTO> optAccount = Optional.empty();
+                if (ct.getOriginAccount() != null) {
+                    optAccount = accountService.findAccountByNro(ct.getOriginAccount());
+                    if (!optAccount.isPresent()) {
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(String.format("La cuenta Nro: %s no existe.", ct.getOriginAccount()));
+                    }
                 }
 
-                List<PaymentSchedule> schedules = paymentScheduleService.findByNroCredit(credit.getNroCredit());
+                List<PaymentSchedule> schedules = paymentScheduleService.findByNroCreditAndState(credit.getNroCredit(),
+                        PayStates.PENDIENTE.toString());
                 Optional<PaymentSchedule> optPay = schedules.stream().findFirst();
-                if (ct.getTransactionAmount() == optPay.get().getMonthlyFee()
-                        || ct.getTransactionAmount() == credit.getAmountUsed()) {
+                if (ct.getTransactionAmount().equals(optPay.get().getMonthlyFee())
+                        || ct.getTransactionAmount().equals(credit.getAmountUsed())) {
                     credit.setAmountUsed(credit.getAmountUsed() - ct.getTransactionAmount());
                     credit.setCreditLine(credit.getCreditLine() + ct.getTransactionAmount());
 
@@ -97,9 +103,17 @@ public class CreditTransactionController {
                             paymentScheduleService.update(pay);
                         }
 
-                        AccountDTO accountOrigen = optAccount.get();
-                        accountOrigen.setAmount(accountOrigen.getAmount() - ct.getTransactionAmount());
-                        
+                        if (ct.getOriginAccount() != null && optAccount.isPresent()) {
+                            AccountDTO accountOrigen = optAccount.get();
+                            accountOrigen.setAmount(accountOrigen.getAmount() - ct.getTransactionAmount());
+                            final String detail = String.format(
+                                    "Pago Terceros: cuota de %.2f soles, de crédito Nro: %s del cliente con Nro. Doc: %s",
+                                    ct.getTransactionAmount(), ct.getNroCredit(), credit.getNroDoc());
+                            accountOrigen.setDetailTransaction(detail);
+                            accountOrigen.setAmountTransaction(ct.getTransactionAmount());
+                            accountService.pagoDeTerceros(accountOrigen);
+                        }
+
                         return ResponseEntity.status(HttpStatus.CREATED).body(response);
                     }
                     return ResponseEntity.badRequest()
@@ -107,8 +121,8 @@ public class CreditTransactionController {
                                     TypeTransaction.PAGO.toString(), ct.getNroCredit()));
                 }
                 return ResponseEntity.badRequest()
-                        .body(String.format("Usted solo puede hacer pagos de los siguientes montos: %s y %s soles.",
-                                ct.getTransactionAmount(), credit.getAmountUsed()));
+                        .body(String.format("Usted solo puede hacer pagos de los siguientes montos: %.2f y %.2f soles.",
+                                optPay.get().getMonthlyFee(), credit.getAmountUsed()));
             }
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

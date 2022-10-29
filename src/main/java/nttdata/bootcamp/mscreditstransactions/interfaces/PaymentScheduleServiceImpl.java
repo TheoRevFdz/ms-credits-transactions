@@ -33,4 +33,9 @@ public class PaymentScheduleServiceImpl implements IPaymentScheduleService {
         return repository.save(paymentSchedule);
     }
 
+    @Override
+    public List<PaymentSchedule> findByNroCreditAndState(String nroCredit, String statePayFee) {
+        return repository.findByNroCreditAndStatePayFee(nroCredit, statePayFee);
+    }
+
 }

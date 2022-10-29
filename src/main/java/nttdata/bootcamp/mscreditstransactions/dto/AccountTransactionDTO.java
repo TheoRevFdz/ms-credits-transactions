@@ -13,16 +13,12 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class AccountDTO {
+public class AccountTransactionDTO {
     private String id;
     private String nroAccount;
-    private String typeAccount;
-    private Double contableBalance;
-    private Double amount;
-    private String typeDoc;
-    private String nroDoc;
-    private Date regDate;
-    private String nroInterbakaryAccount;
-    private String detailTransaction;
-    private Double amountTransaction;
+    private String type;
+    private String detail;
+    private Double transactionAmount;
+    private Date transactionDate;
+    private Double comission;
 }
