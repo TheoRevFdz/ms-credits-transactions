@@ -20,10 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
+import nttdata.bootcamp.mscreditstransactions.dto.AccountDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditTransactionDTO;
 import nttdata.bootcamp.mscreditstransactions.enums.PayStates;
 import nttdata.bootcamp.mscreditstransactions.enums.TypeTransaction;
+import nttdata.bootcamp.mscreditstransactions.interfaces.IAccountService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditTransactionService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.IPaymentScheduleService;
@@ -42,6 +44,9 @@ public class CreditTransactionController {
 
     @Autowired
     private IPaymentScheduleService paymentScheduleService;
+
+    @Autowired
+    private IAccountService accountService;
 
     @CircuitBreaker(name = "credits-transactions", fallbackMethod = "findByNroCreditAndTypeAlt")
     @GetMapping("/{nroCredit}/{type}")
@@ -67,30 +72,43 @@ public class CreditTransactionController {
                             .format("El credito Nro: %s no presenta deuda de consumos realizados.", ct.getNroCredit()));
                 }
 
-                credit.setAmountUsed(credit.getAmountUsed() - ct.getTransactionAmount());
-                credit.setCreditLine(credit.getCreditLine() + ct.getTransactionAmount());
-
-                ResponseEntity<?> resp = creditService.updateCredit(credit);
-                if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
-                    ct.setType(TypeTransaction.PAGO.toString());
-                    ct.setTransactionDate(new Date());
-                    final CreditTransaction response = service.createTransaction(ct);
-
-                    List<PaymentSchedule> schedules = paymentScheduleService.findByNroCredit(credit.getNroCredit());
-                    Optional<PaymentSchedule> optPay = schedules.stream().findFirst();
-                    if (optPay.isPresent()) {
-                        PaymentSchedule pay = optPay.get();
-                        pay.setStatePayFee(PayStates.PAGADO.toString());
-                        paymentScheduleService.update(pay);
-                    }
-
-                    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+                Optional<AccountDTO> optAccount = accountService.findAccountByNro(ct.getOriginAccount());
+                if (!optAccount.isPresent()) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(String.format("La cuenta Nro: %s no existe.", ct.getOriginAccount()));
                 }
 
-                return ResponseEntity.badRequest()
-                        .body(String.format("Error al registrar el %s del Crédito Nro: %s",
-                                TypeTransaction.PAGO.toString(), ct.getNroCredit()));
+                List<PaymentSchedule> schedules = paymentScheduleService.findByNroCredit(credit.getNroCredit());
+                Optional<PaymentSchedule> optPay = schedules.stream().findFirst();
+                if (ct.getTransactionAmount() == optPay.get().getMonthlyFee()
+                        || ct.getTransactionAmount() == credit.getAmountUsed()) {
+                    credit.setAmountUsed(credit.getAmountUsed() - ct.getTransactionAmount());
+                    credit.setCreditLine(credit.getCreditLine() + ct.getTransactionAmount());
 
+                    ResponseEntity<?> resp = creditService.updateCredit(credit);
+                    if (resp.getStatusCodeValue() == HttpStatus.OK.value()) {
+                        ct.setType(TypeTransaction.PAGO.toString());
+                        ct.setTransactionDate(new Date());
+                        final CreditTransaction response = service.createTransaction(ct);
+
+                        if (optPay.isPresent()) {
+                            PaymentSchedule pay = optPay.get();
+                            pay.setStatePayFee(PayStates.PAGADO.toString());
+                            paymentScheduleService.update(pay);
+                        }
+
+                        AccountDTO accountOrigen = optAccount.get();
+                        accountOrigen.setAmount(accountOrigen.getAmount() - ct.getTransactionAmount());
+                        
+                        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+                    }
+                    return ResponseEntity.badRequest()
+                            .body(String.format("Error al registrar el %s del Crédito Nro: %s",
+                                    TypeTransaction.PAGO.toString(), ct.getNroCredit()));
+                }
+                return ResponseEntity.badRequest()
+                        .body(String.format("Usted solo puede hacer pagos de los siguientes montos: %s y %s soles.",
+                                ct.getTransactionAmount(), credit.getAmountUsed()));
             }
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -161,8 +179,8 @@ public class CreditTransactionController {
         }
     }
 
-    @GetMapping("/validFee/{nroDoc}")
-    public ResponseEntity<?> verfyCuotaVencidas(@PathVariable String nroDoc) {
+    @GetMapping("/validateFee/{nroDoc}")
+    public ResponseEntity<?> validateCuotasVencidas(@PathVariable String nroDoc) {
         List<CreditDTO> credits = creditService.findCreditsByNroDoc(nroDoc);
 
         boolean resp = false;

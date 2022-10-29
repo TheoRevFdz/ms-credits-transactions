@@ -25,4 +25,5 @@ public class CreditTransaction {
     private Date transactionDate;
     // CANTIDAD DE CUOTAS MENSUALES
     private Double feeMonths;
+    private String originAccount;
 }
