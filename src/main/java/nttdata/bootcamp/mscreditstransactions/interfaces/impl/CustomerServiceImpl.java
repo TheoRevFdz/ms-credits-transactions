@@ -1,4 +1,4 @@
-package nttdata.bootcamp.mscreditstransactions.interfaces;
+package nttdata.bootcamp.mscreditstransactions.interfaces.impl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,16 +6,16 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
+import nttdata.bootcamp.mscreditstransactions.config.RestConfig;
 import nttdata.bootcamp.mscreditstransactions.dto.CustomerDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.ProfileDTO;
+import nttdata.bootcamp.mscreditstransactions.interfaces.ICustomerService;
 
 @Service
 public class CustomerServiceImpl implements ICustomerService {
 
     @Autowired
-    private RestTemplate rest;
+    private RestConfig rest;
 
     @Override
     public Optional<ProfileDTO> findProfileByProfile(String profile) {

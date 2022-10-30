@@ -1,4 +1,4 @@
-package nttdata.bootcamp.mscreditstransactions.interfaces;
+package nttdata.bootcamp.mscreditstransactions.interfaces.impl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import nttdata.bootcamp.mscreditstransactions.config.RestConfig;
 import nttdata.bootcamp.mscreditstransactions.dto.AccountDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.AccountTransactionDTO;
+import nttdata.bootcamp.mscreditstransactions.interfaces.IAccountService;
 
 @Service
 public class AccountServiceImpl implements IAccountService {

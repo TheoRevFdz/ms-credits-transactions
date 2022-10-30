@@ -1,4 +1,4 @@
-package nttdata.bootcamp.mscreditstransactions.interfaces;
+package nttdata.bootcamp.mscreditstransactions.interfaces.impl;
 
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import nttdata.bootcamp.mscreditstransactions.config.RestConfig;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
+import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditService;
 
 @Service
 public class CreditServiceImpl implements ICreditService {

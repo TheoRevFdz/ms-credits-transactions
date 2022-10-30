@@ -1,4 +1,4 @@
-package nttdata.bootcamp.mscreditstransactions.interfaces;
+package nttdata.bootcamp.mscreditstransactions.interfaces.impl;
 
 import java.util.List;
 
@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import nttdata.bootcamp.mscreditstransactions.infraestructure.ICreditTransactionRepository;
+import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditTransactionService;
 import nttdata.bootcamp.mscreditstransactions.model.CreditTransaction;
 
 @Service
