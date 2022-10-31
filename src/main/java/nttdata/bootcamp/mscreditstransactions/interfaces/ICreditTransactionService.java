@@ -12,4 +12,6 @@ public interface ICreditTransactionService {
     public List<CreditTransaction> findTransactionByNroCreditAndType(String nroCredit, String type);
 
     public List<CreditTransaction> findTransactionsByNroCredit(String nroCredit);
+
+    public List<CreditTransaction> getLastTransactionByMethodAndNroCard(String method, String nroCard);
 }

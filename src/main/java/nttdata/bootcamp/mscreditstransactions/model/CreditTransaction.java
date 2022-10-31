@@ -26,6 +26,6 @@ public class CreditTransaction {
     // CANTIDAD DE CUOTAS MENSUALES
     private Double feeMonths;
     private String originAccount;
-    private String mediumTransaction;
+    private String method;
     private String nroCard;
 }

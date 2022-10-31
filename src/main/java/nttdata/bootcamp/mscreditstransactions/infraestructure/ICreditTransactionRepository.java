@@ -12,4 +12,8 @@ public interface ICreditTransactionRepository extends MongoRepository<CreditTran
     public List<CreditTransaction> findByNroCreditAndType(String nroCredit, String type);
 
     public List<CreditTransaction> findByNroCredit(String nroCredit);
+
+    public List<CreditTransaction> findByNroCard(String nroCard);
+
+    public List<CreditTransaction> findByNroCardAndMethod(String nroCard, String method);
 }

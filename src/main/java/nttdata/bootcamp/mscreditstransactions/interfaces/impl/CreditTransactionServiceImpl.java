@@ -35,4 +35,9 @@ public class CreditTransactionServiceImpl implements ICreditTransactionService {
         return repository.findByNroCredit(nroCredit);
     }
 
+    @Override
+    public List<CreditTransaction> getLastTransactionByMethodAndNroCard(String method, String nroCard) {
+        return repository.findByNroCardAndMethod(nroCard, method);
+    }
+
 }

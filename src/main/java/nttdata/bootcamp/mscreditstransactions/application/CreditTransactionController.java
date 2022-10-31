@@ -22,16 +22,21 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import nttdata.bootcamp.mscreditstransactions.dto.AccountDTO;
+import nttdata.bootcamp.mscreditstransactions.dto.CreditCardDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditDTO;
 import nttdata.bootcamp.mscreditstransactions.dto.CreditTransactionDTO;
+import nttdata.bootcamp.mscreditstransactions.enums.MethodTransaction;
 import nttdata.bootcamp.mscreditstransactions.enums.PayStates;
 import nttdata.bootcamp.mscreditstransactions.enums.TypeTransaction;
 import nttdata.bootcamp.mscreditstransactions.interfaces.IAccountService;
+import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditCardService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.ICreditTransactionService;
 import nttdata.bootcamp.mscreditstransactions.interfaces.IPaymentScheduleService;
 import nttdata.bootcamp.mscreditstransactions.model.CreditTransaction;
 import nttdata.bootcamp.mscreditstransactions.model.PaymentSchedule;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @RestController
@@ -48,6 +53,9 @@ public class CreditTransactionController {
 
     @Autowired
     private IAccountService accountService;
+
+    @Autowired
+    private ICreditCardService cardService;
 
     @CircuitBreaker(name = "credits-transactions", fallbackMethod = "findByNroCreditAndTypeAlt")
     @GetMapping("/{nroCredit}/{type}")
@@ -72,6 +80,14 @@ public class CreditTransactionController {
                 if (credit.getAmountUsed() == null || credit.getAmountUsed() == 0) {
                     return ResponseEntity.ok(String
                             .format("El credito Nro: %s no presenta deuda de consumos realizados.", ct.getNroCredit()));
+                }
+
+                if (ct.getMethod() == null || ct.getMethod().isBlank()) {
+                    ct.setMethod(MethodTransaction.DIRECTO.toString());
+                }
+                var validCreditCard = validateCreditCardMethod(ct);
+                if (validCreditCard.getStatusCodeValue() != HttpStatus.OK.value()) {
+                    return validCreditCard;
                 }
 
                 Optional<AccountDTO> optAccount = Optional.empty();
@@ -135,8 +151,15 @@ public class CreditTransactionController {
     @PostMapping("/consume")
     public ResponseEntity<?> createConsume(@RequestBody CreditTransaction ct) {
         try {
-            Optional<CreditDTO> optCredit = creditService.findCreditByNroCredit(ct.getNroCredit());
+            if (ct.getMethod() == null || ct.getMethod().isBlank()) {
+                ct.setMethod(MethodTransaction.DIRECTO.toString());
+            }
+            var validCreditCard = validateCreditCardMethod(ct);
+            if (validCreditCard.getStatusCodeValue() != HttpStatus.OK.value()) {
+                return validCreditCard;
+            }
 
+            Optional<CreditDTO> optCredit = creditService.findCreditByNroCredit(ct.getNroCredit());
             if (optCredit.isPresent()) {
                 CreditDTO credit = optCredit.get();
 
@@ -216,5 +239,36 @@ public class CreditTransactionController {
         }
 
         return ResponseEntity.ok().body(resp);
+    }
+
+    private ResponseEntity<?> validateCreditCardMethod(CreditTransaction ct) {
+        if (ct.getMethod().equals(MethodTransaction.TARJETA.toString())) {
+            Optional<CreditCardDTO> optCreditCard = cardService.findByNroCardAndNroCredit(ct.getNroCard(),
+                    ct.getNroCredit());
+            if (optCreditCard.isPresent()) {
+                return ResponseEntity.ok().build();
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Ingrese una tarjeta de crédito valida y vuelva a intentarlo.");
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/last/{cant}/byCard/{nroCard}")
+    public Mono<ResponseEntity<?>> getLastTransactionsByCard(@PathVariable int cant, @PathVariable String nroCard) {
+        try {
+            List<CreditTransaction> resp = service
+                    .getLastTransactionByMethodAndNroCard(MethodTransaction.TARJETA.toString(), nroCard);
+            resp = resp.stream().filter(c -> c.getTransactionDate()
+                    .before(new Date()))
+                    .limit(cant)
+                    .collect(Collectors.toList());
+            // resp=resp.stream().filter(null);
+
+            return Mono.just(ResponseEntity.ok().body(Flux.fromIterable(resp)));
+        } catch (Exception e) {
+            return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(e.getMessage()));
+        }
     }
 }
