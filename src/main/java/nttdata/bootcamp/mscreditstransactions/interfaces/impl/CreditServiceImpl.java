@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -20,11 +21,14 @@ public class CreditServiceImpl implements ICreditService {
     @Autowired
     private RestConfig creditRest;
 
+    @Value("${hostname}")
+    private String hostname;
+
     @Override
     public CreditDTO findCreditById(String id) {
         Map<String, String> param = new HashMap<String, String>();
         param.put("id", id);
-        String uri = "http://localhost:8090/api/credits/{id}";
+        String uri = String.format("http://%s:8090/api/credits/{id}", hostname);
         final CreditDTO dto = creditRest.getForObject(uri, CreditDTO.class, param);
         return dto;
     }
@@ -32,7 +36,7 @@ public class CreditServiceImpl implements ICreditService {
     @Override
     public ResponseEntity<?> updateCredit(CreditDTO dto) {
         HttpEntity<CreditDTO> body = new HttpEntity<CreditDTO>(dto);
-        String uri = "http://localhost:8090/api/credits";
+        String uri = String.format("http://%s:8090/api/credits", hostname);
         ResponseEntity<CreditDTO> response = creditRest.exchange(
                 uri,
                 HttpMethod.PUT,
@@ -45,7 +49,7 @@ public class CreditServiceImpl implements ICreditService {
     public Optional<CreditDTO> findCreditByNroCredit(String nroCredit) {
         Map<String, String> param = new HashMap<String, String>();
         param.put("nroCredit", nroCredit);
-        String uri = "http://localhost:8090/api/credits/byNroCredit/{nroCredit}";
+        String uri = String.format("http://%s:8090/api/credits/byNroCredit/{nroCredit}", hostname);
         final CreditDTO dto = creditRest.getForObject(uri, CreditDTO.class, param);
         Optional<CreditDTO> result = Optional.ofNullable(dto);
         return result;
@@ -55,7 +59,7 @@ public class CreditServiceImpl implements ICreditService {
     public List<CreditDTO> findCreditsByNroDoc(String nroDoc) {
         Map<String, String> param = new HashMap<String, String>();
         param.put("nroDoc", nroDoc);
-        String uri = "http://localhost:8090/api/credits/nroDoc/{nroDoc}";
+        String uri = String.format("http://%s:8090/api/credits/nroDoc/{nroDoc}", hostname);
         ResponseEntity<List<CreditDTO>> resp = creditRest.exchange(uri, HttpMethod.GET, null,
                 new ParameterizedTypeReference<List<CreditDTO>>() {
 
