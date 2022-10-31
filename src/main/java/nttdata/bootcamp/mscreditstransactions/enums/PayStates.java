@@ -1,6 +1,6 @@
 package nttdata.bootcamp.mscreditstransactions.enums;
 
-public enum TypeTransaction {
-    PAGO,
-    CONSUMO
+public enum PayStates {
+    PENDIENTE,
+    PAGADO
 }
