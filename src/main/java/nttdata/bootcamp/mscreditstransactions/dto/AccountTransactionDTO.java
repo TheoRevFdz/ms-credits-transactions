@@ -21,4 +21,6 @@ public class AccountTransactionDTO {
     private Double transactionAmount;
     private Date transactionDate;
     private Double comission;
+    private String method;
+    private String nroCard;
 }
